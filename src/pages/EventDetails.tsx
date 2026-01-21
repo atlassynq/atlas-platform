@@ -1,17 +1,14 @@
 // src/pages/EventDetails.tsx
 import { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Calendar,
-  Clock,
   MapPin,
   ArrowLeft,
   Trash2,
   Pencil,
 } from 'lucide-react';
 import Button from '../components/ui/Button';
-import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import type { EventFormData } from '../components/EventEditalModal';
 import EventEditModal from '../components/EventEditalModal';
@@ -181,7 +178,7 @@ function EventDetails() {
           <Button
             type="button"
             variant="secondary"
-            className="!bg-red-600/10 !border-red-500/30 text-red-400 hover:!bg-red-600/20 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm"
+            className="bg-red-600/10! border-red-500/30! text-red-400 hover:bg-red-600/20! inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm"
             onClick={handleDeleteClick}
           >
             <Trash2 size={16} />
