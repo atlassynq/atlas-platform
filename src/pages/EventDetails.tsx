@@ -7,83 +7,115 @@ import {
   ArrowLeft,
   Trash2,
   Pencil,
+  Users,
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import type { EventFormData } from '../components/EventEditalModal';
 import EventEditModal from '../components/EventEditalModal';
 import Skeleton from '../components/ui/Skeleton';
-
-const mockEvent = {
-  id: '1',
-  title: 'Meetup de Devs Recife',
-  description:
-    'Encontro da comunidade de devs para networking, talks e cerveja gelada.',
-  dateRange: 'Hoje · 19:30 – 22:00',
-  place: 'Portomídia',
-  address: 'Recife Antigo, Recife - PE',
-  status: 'ativo' as 'ativo' | 'rascunho',
-  capacity: 80,
-};
+import { toast } from 'sonner';
+import { api } from '../services/api';
+import type { Event } from '../types/api';
+import { getErrorMessage } from '../lib/errorMessages';
 
 function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const [event, setEvent] = useState<Event | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!id) return;
+    setLoading(true);
+    api
+      .get<Event>(`/events/${id}`)
+      .then((data) => {
+        setEvent(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setFetchError(getErrorMessage(err));
+        setLoading(false);
+      });
+  }, [id]);
 
-  const eventData: EventFormData = {
-    title: mockEvent.title,
-    description: mockEvent.description,
-    place: mockEvent.place,
-    address: mockEvent.address,
-    dateRange: mockEvent.dateRange,
-    capacity: mockEvent.capacity,
-    status: mockEvent.status,
-  };
+  const toDatetimeLocal = (iso: string) => iso?.slice(0, 16) ?? '';
 
-  const handleOpenEdit = () => {
-    setEditOpen(true);
-  };
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
-  const handleSaveEdit = (data: EventFormData) => {
+  const handleSaveEdit = async (data: EventFormData) => {
+    if (!id) return;
     setSavingEdit(true);
+    setError('');
 
-    setTimeout(() => {
-      console.log('atualizar evento', id, data);
-      setSavingEdit(false);
+    try {
+      let updated: Event;
+
+      if (data.coverPhoto instanceof File) {
+        const formData = new FormData();
+        formData.append('title', data.title);
+        formData.append('description', data.description);
+        formData.append('startTime', new Date(data.startTime).toISOString());
+        formData.append('endTime', new Date(data.endTime).toISOString());
+        formData.append('latitude', String(data.latitude));
+        formData.append('longitude', String(data.longitude));
+        formData.append('coverPhoto', data.coverPhoto);
+        updated = await api.patchFormData<Event>(`/events/${id}`, formData);
+      } else {
+        updated = await api.patch<Event>(`/events/${id}`, {
+          title: data.title,
+          description: data.description || undefined,
+          startTime: new Date(data.startTime).toISOString(),
+          endTime: new Date(data.endTime).toISOString(),
+          latitude: data.latitude,
+          longitude: data.longitude,
+        });
+      }
+
+      setEvent(updated);
       setEditOpen(false);
-    }, 800);
+      toast.success('Evento atualizado com sucesso!');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
-  const handleDeleteClick = () => {
-    setConfirmOpen(true);
-  };
-
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
+    if (!id) return;
     setDeleting(true);
+    setError('');
 
-    setTimeout(() => {
-      console.log('deletar evento', id);
+    try {
+      await api.delete(`/events/${id}`);
+      setConfirmOpen(false);
+      toast.success('Evento deletado com sucesso.');
+      navigate('/events');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
       setDeleting(false);
       setConfirmOpen(false);
-      navigate('/events');
-    }, 800);
+    }
   };
 
   if (loading) {
     return (
       <div className="space-y-6">
-        {/* Header skeleton */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <Skeleton className="h-9 w-9 rounded-xl" />
@@ -98,7 +130,6 @@ function EventDetails() {
           </div>
         </div>
 
-        {/* Cards skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 rounded-2xl bg-[#090909] border border-white/5 p-6 space-y-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -145,6 +176,34 @@ function EventDetails() {
     );
   }
 
+  if (fetchError && !event) {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-gray-300 hover:bg-white/5"
+        >
+          <ArrowLeft size={16} />
+        </button>
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+          <p className="text-sm text-red-400">{fetchError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!event) return null;
+
+  const eventFormData: EventFormData = {
+    title: event.title,
+    description: event.description ?? '',
+    startTime: toDatetimeLocal(event.startTime),
+    endTime: toDatetimeLocal(event.endTime),
+    latitude: event.latitude,
+    longitude: event.longitude,
+    coverPhoto: event.coverPhoto,
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -161,7 +220,7 @@ function EventDetails() {
               Detalhes do evento
             </p>
             <h1 className="text-xl md:text-2xl font-semibold text-white">
-              {mockEvent.title}
+              {event.title}
             </h1>
           </div>
         </div>
@@ -169,7 +228,7 @@ function EventDetails() {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={handleOpenEdit}
+            onClick={() => setEditOpen(true)}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm font-medium border border-white/10 text-gray-200 hover:bg-white/5"
           >
             <Pencil size={16} />
@@ -179,7 +238,7 @@ function EventDetails() {
             type="button"
             variant="secondary"
             className="bg-red-600/10! border-red-500/30! text-red-400 hover:bg-red-600/20! inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm"
-            onClick={handleDeleteClick}
+            onClick={() => setConfirmOpen(true)}
           >
             <Trash2 size={16} />
             Deletar
@@ -191,19 +250,23 @@ function EventDetails() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Info principal */}
         <div className="lg:col-span-2 rounded-2xl bg-[#090909] border border-white/5 p-6 space-y-5">
+          {event.coverPhoto && (
+            <img
+              src={event.coverPhoto}
+              alt={event.title}
+              className="w-full h-48 object-cover rounded-xl"
+            />
+          )}
+
           <div className="flex flex-wrap items-center gap-3">
-            <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-                mockEvent.status === 'ativo'
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-gray-500/10 text-gray-300 border border-gray-500/30'
-              }`}
-            >
-              {mockEvent.status === 'ativo' ? 'Ativo no app' : 'Rascunho'}
+            <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              Evento ativo
             </span>
-            {mockEvent.capacity && (
-              <span className="text-xs text-gray-400">
-                Capacidade: {mockEvent.capacity} pessoas
+            {event._count && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">
+                <Users size={13} />
+                {event._count.confirmations} confirmação
+                {event._count.confirmations !== 1 ? 'ões' : ''}
               </span>
             )}
           </div>
@@ -213,28 +276,35 @@ function EventDetails() {
               <Calendar size={18} className="mt-0.5 text-[#FF4B8A]" />
               <div>
                 <p className="font-medium text-white">Data e horário</p>
-                <p className="text-gray-300 mt-0.5">{mockEvent.dateRange}</p>
+                <p className="text-gray-300 mt-0.5">
+                  Início: {formatDate(event.startTime)}
+                </p>
+                <p className="text-gray-300 mt-0.5">
+                  Fim: {formatDate(event.endTime)}
+                </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
               <MapPin size={18} className="mt-0.5 text-[#FF4B8A]" />
               <div>
-                <p className="font-medium text-white">Local</p>
-                <p className="text-gray-300 mt-0.5">{mockEvent.place}</p>
-                <p className="text-gray-500 text-xs mt-0.5">
-                  {mockEvent.address}
+                <p className="font-medium text-white">Localização</p>
+                <p className="text-gray-300 mt-0.5">
+                  Lat {event.latitude.toFixed(6)} / Lon{' '}
+                  {event.longitude.toFixed(6)}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-white/5">
-            <p className="text-sm font-medium text-white mb-2">Descrição</p>
-            <p className="text-sm text-gray-300 leading-relaxed">
-              {mockEvent.description}
-            </p>
-          </div>
+          {event.description && (
+            <div className="pt-4 border-t border-white/5">
+              <p className="text-sm font-medium text-white mb-2">Descrição</p>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {event.description}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Card lateral */}
@@ -246,18 +316,28 @@ function EventDetails() {
             </p>
             <div className="flex flex-col gap-2 mt-2">
               <button
-                onClick={handleOpenEdit}
+                onClick={() => setEditOpen(true)}
                 className="text-xs text-[#FF4B8A] hover:underline text-left"
               >
                 Editar detalhes do evento
               </button>
               <button
-                onClick={handleDeleteClick}
+                onClick={() => setConfirmOpen(true)}
                 className="text-xs text-red-400 hover:underline text-left"
               >
                 Deletar evento
               </button>
             </div>
+          </div>
+
+          <div className="rounded-2xl bg-[#090909] border border-white/5 p-5 space-y-2 text-xs text-gray-400">
+            <p className="font-medium text-white text-sm">Criado por</p>
+            <p>
+              {event.creator.firstName} {event.creator.lastName}
+            </p>
+            <p className="text-gray-500 text-[11px]">
+              ID: {event.id.slice(0, 8)}...
+            </p>
           </div>
 
           <div className="rounded-2xl bg-[#090909] border border-white/5 p-5 space-y-2 text-xs text-gray-400">
@@ -275,7 +355,7 @@ function EventDetails() {
       {/* Modal de edição */}
       <EventEditModal
         open={editOpen}
-        initialData={eventData}
+        initialData={eventFormData}
         loading={savingEdit}
         onClose={() => setEditOpen(false)}
         onSave={handleSaveEdit}

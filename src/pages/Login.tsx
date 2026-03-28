@@ -2,7 +2,11 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, X } from 'lucide-react';
+import { toast } from 'sonner';
 import Button from '../components/ui/Button';
+import { api } from '../services/api';
+import type { LoginResponse } from '../types/api';
+import { getErrorMessage } from '../lib/errorMessages';
 
 const WHATSAPP_NUMBER =
   import.meta.env.VITE_ATLAS_SUPPORT_WHATSAPP || '5581XXXXXXXXX';
@@ -13,28 +17,29 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const [contactOpen, setContactOpen] = useState(false);
   const [contactMessage, setContactMessage] = useState(
     'João...não estou conseguindo logar no Atlas Admin, poderia checar para mim?'
   );
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      if (email && password) {
-        localStorage.setItem('atlas_admin_token', 'mock-token-12345');
-        localStorage.setItem('atlas_admin_email', email);
-        navigate('/dashboard');
-      } else {
-        setError('Email e senha são obrigatórios');
-        setLoading(false);
-      }
-    }, 800);
+    try {
+      const { token, user } = await api.post<LoginResponse>(
+        '/auth/login',
+        { email, password },
+        { requiresAuth: false }
+      );
+      localStorage.setItem('atlas_admin_token', token);
+      localStorage.setItem('atlas_admin_email', user.email);
+      navigate('/dashboard');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+      setLoading(false);
+    }
   };
 
   const handleSendWhatsApp = () => {
@@ -107,13 +112,6 @@ function Login() {
                 />
               </div>
             </div>
-
-            {/* Erro */}
-            {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-sm text-red-400">{error}</p>
-              </div>
-            )}
 
             {/* Botão */}
             <Button

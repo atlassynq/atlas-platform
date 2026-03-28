@@ -1,7 +1,39 @@
+import { useState, useEffect } from 'react';
 import { Calendar, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import Skeleton from '../components/ui/Skeleton';
+import { api } from '../services/api';
+import type { Event } from '../types/api';
 
 function Dashboard() {
+  const [counts, setCounts] = useState({ ativos: 0, futuros: 0, finalizados: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get<Event[]>('/events/my-events')
+      .then((events) => {
+        const now = new Date();
+        let ativos = 0;
+        let futuros = 0;
+        let finalizados = 0;
+
+        for (const event of events) {
+          const start = new Date(event.startTime);
+          const end = new Date(event.endTime);
+          if (end < now) finalizados++;
+          else if (start > now) futuros++;
+          else ativos++;
+        }
+
+        setCounts({ ativos, futuros, finalizados });
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -27,11 +59,15 @@ function Dashboard() {
         </Link>
       </div>
 
-      {/* Cards de resumo (mock) */}
+      {/* Cards de resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-2xl bg-[#090909] border border-white/5 p-5">
           <p className="text-xs text-gray-400 mb-2">Eventos ativos</p>
-          <p className="text-2xl font-semibold text-white">12</p>
+          {loading ? (
+            <Skeleton className="h-8 w-12" />
+          ) : (
+            <p className="text-2xl font-semibold text-white">{counts.ativos}</p>
+          )}
           <p className="text-xs text-gray-500 mt-2">
             Sendo exibidos agora no mapa do app.
           </p>
@@ -39,7 +75,11 @@ function Dashboard() {
 
         <div className="rounded-2xl bg-[#090909] border border-white/5 p-5">
           <p className="text-xs text-gray-400 mb-2">Eventos futuros</p>
-          <p className="text-2xl font-semibold text-white">7</p>
+          {loading ? (
+            <Skeleton className="h-8 w-12" />
+          ) : (
+            <p className="text-2xl font-semibold text-white">{counts.futuros}</p>
+          )}
           <p className="text-xs text-gray-500 mt-2">
             Programados para as próximas semanas.
           </p>
@@ -47,7 +87,13 @@ function Dashboard() {
 
         <div className="rounded-2xl bg-[#090909] border border-white/5 p-5">
           <p className="text-xs text-gray-400 mb-2">Eventos finalizados</p>
-          <p className="text-2xl font-semibold text-white">34</p>
+          {loading ? (
+            <Skeleton className="h-8 w-12" />
+          ) : (
+            <p className="text-2xl font-semibold text-white">
+              {counts.finalizados}
+            </p>
+          )}
           <p className="text-xs text-gray-500 mt-2">
             Histórico de eventos realizados.
           </p>
