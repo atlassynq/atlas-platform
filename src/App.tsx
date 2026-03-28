@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Login from './pages/Login';
 import PrivateRoute from './components/PrivateRoutes';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +11,8 @@ import EventDetails from './pages/EventDetails';
 
 function App() {
   return (
+    <>
+    <Toaster theme="dark" position="bottom-right" richColors />
     <BrowserRouter>
       <Routes>
         {/* Rota pública */}
@@ -30,6 +33,7 @@ function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
+    </>
   );
 }
 

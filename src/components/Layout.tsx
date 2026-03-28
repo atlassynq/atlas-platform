@@ -1,35 +1,14 @@
-import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Calendar, LayoutDashboard, LogOut } from 'lucide-react';
-import Toast from '../components/ui/Toast';
-
-type ToastType = 'success' | 'error';
+import { toast } from 'sonner';
 
 function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [toast, setToast] = useState<{
-    open: boolean;
-    message: string;
-    type: ToastType;
-  }>({
-    open: false,
-    message: '',
-    type: 'success',
-  });
-
-  const showToast = (message: string, type: ToastType = 'success') => {
-    setToast({ open: true, message, type });
-    setTimeout(
-      () => setToast((prev) => ({ ...prev, open: false })),
-      2500
-    );
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('atlas_admin_token');
-    showToast('Você saiu do painel Atlas Admin.', 'success');
+    toast.success('Você saiu do painel Atlas Admin.');
     setTimeout(() => navigate('/login'), 400);
   };
 
@@ -121,7 +100,6 @@ function Layout() {
         </div>
       </main>
 
-      <Toast open={toast.open} message={toast.message} type={toast.type} />
     </div>
   );
 }
