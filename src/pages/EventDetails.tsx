@@ -60,7 +60,6 @@ function EventDetails() {
   const handleSaveEdit = async (data: EventFormData) => {
     if (!id) return;
     setSavingEdit(true);
-    setError('');
 
     try {
       let updated: Event;
@@ -99,7 +98,6 @@ function EventDetails() {
   const handleConfirmDelete = async () => {
     if (!id) return;
     setDeleting(true);
-    setError('');
 
     try {
       await api.delete(`/events/${id}`);
