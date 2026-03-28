@@ -24,6 +24,7 @@ function EventDetails() {
   const navigate = useNavigate();
 
   const [event, setEvent] = useState<Event | null>(null);
+  const [address, setAddress] = useState<string>('');
   const [editOpen, setEditOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -36,9 +37,20 @@ function EventDetails() {
     setLoading(true);
     api
       .get<Event>(`/events/${id}`)
-      .then((data) => {
+      .then(async (data) => {
         setEvent(data);
         setLoading(false);
+        try {
+          const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+          const res = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${data.longitude},${data.latitude}.json?access_token=${token}&language=pt&limit=1`
+          );
+          const json = await res.json();
+          const place = json.features?.[0]?.place_name ?? '';
+          setAddress(place);
+        } catch {
+          setAddress('');
+        }
       })
       .catch((err) => {
         setFetchError(getErrorMessage(err));
@@ -199,6 +211,7 @@ function EventDetails() {
     endTime: toDatetimeLocal(event.endTime),
     latitude: event.latitude,
     longitude: event.longitude,
+    address,
     coverPhoto: event.coverPhoto,
   };
 
@@ -288,8 +301,7 @@ function EventDetails() {
               <div>
                 <p className="font-medium text-white">Localização</p>
                 <p className="text-gray-300 mt-0.5">
-                  Lat {event.latitude.toFixed(6)} / Lon{' '}
-                  {event.longitude.toFixed(6)}
+                  {address || 'Carregando endereço...'}
                 </p>
               </div>
             </div>
